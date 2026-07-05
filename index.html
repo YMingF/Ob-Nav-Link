@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Open Obsidian</title>
+  <style>
+    :root {
+      --background: #f7f5f0;
+      --foreground: #1f2328;
+      --muted: #667085;
+      --surface: #ffffff;
+      --border: #d9d4c9;
+      --accent: #5b5bd6;
+      --accent-strong: #4545b8;
+      --danger: #b42318;
+      --danger-surface: #fff3f0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #171717;
+        --foreground: #f2f4f7;
+        --muted: #a3a8b3;
+        --surface: #202124;
+        --border: #3b3d43;
+        --accent: #8f8cff;
+        --accent-strong: #b2b0ff;
+        --danger: #ff9c8f;
+        --danger-surface: #351d1a;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: var(--background);
+      color: var(--foreground);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      width: min(100%, 680px);
+      display: grid;
+      gap: 18px;
+    }
+
+    h1,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--foreground);
+      font: inherit;
+      font-size: 15px;
+      padding: 12px;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    input[readonly] {
+      color: var(--muted);
+    }
+
+    button,
+    a.button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    button:hover,
+    a.button:hover {
+      background: var(--accent-strong);
+    }
+
+    .panel {
+      display: grid;
+      gap: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 20px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .target {
+      overflow-wrap: anywhere;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    .error {
+      border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+      background: var(--danger-surface);
+      color: var(--danger);
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="opener" class="panel hidden" aria-live="polite">
+      <h1>Open Obsidian</h1>
+      <p id="openStatus" class="muted">Trying to open Obsidian.</p>
+      <div class="actions">
+        <a id="openLink" class="button" rel="noreferrer">Open in Obsidian</a>
+      </div>
+      <p id="targetText" class="target muted"></p>
+    </section>
+
+    <section id="generator" class="panel hidden">
+      <h1>Open Obsidian</h1>
+      <label>
+        Obsidian URI
+        <textarea id="obsidianInput" spellcheck="false" placeholder="obsidian://advanced-uri?vault=ObRepo&amp;uid=..."></textarea>
+      </label>
+      <div class="actions">
+        <button id="generateButton" type="button">Generate link</button>
+        <button id="copyButton" type="button">Copy</button>
+      </div>
+      <label>
+        Notion link
+        <input id="notionLink" readonly>
+      </label>
+      <p id="generatorStatus" class="muted" aria-live="polite"></p>
+    </section>
+
+    <section id="errorPanel" class="panel error hidden" aria-live="assertive">
+      <h1>Invalid target</h1>
+      <p id="errorText"></p>
+    </section>
+  </main>
+
+  <script>
+    const opener = document.getElementById("opener");
+    const generator = document.getElementById("generator");
+    const errorPanel = document.getElementById("errorPanel");
+    const errorText = document.getElementById("errorText");
+    const openLink = document.getElementById("openLink");
+    const openStatus = document.getElementById("openStatus");
+    const targetText = document.getElementById("targetText");
+    const obsidianInput = document.getElementById("obsidianInput");
+    const notionLink = document.getElementById("notionLink");
+    const generatorStatus = document.getElementById("generatorStatus");
+    const generateButton = document.getElementById("generateButton");
+    const copyButton = document.getElementById("copyButton");
+
+    const pageUrl = location.href.split("?")[0].split("#")[0];
+    const target = new URL(location.href).searchParams.get("to");
+
+    function isObsidianUri(value) {
+      try {
+        return new URL(value).protocol === "obsidian:";
+      } catch {
+        return false;
+      }
+    }
+
+    function showError(message) {
+      errorPanel.classList.remove("hidden");
+      errorText.textContent = message;
+    }
+
+    function generateNotionLink() {
+      const value = obsidianInput.value.trim();
+      if (!isObsidianUri(value)) {
+        notionLink.value = "";
+        generatorStatus.textContent = "Paste an obsidian:// URI first.";
+        return;
+      }
+
+      notionLink.value = `${pageUrl}?to=${encodeURIComponent(value)}`;
+      generatorStatus.textContent = "Ready.";
+    }
+
+    if (target) {
+      if (!isObsidianUri(target)) {
+        showError("The to parameter must start with obsidian://.");
+      } else {
+        opener.classList.remove("hidden");
+        openLink.href = target;
+        targetText.textContent = target;
+
+        setTimeout(() => {
+          openStatus.textContent = "If nothing opened, use the button below.";
+          location.href = target;
+        }, 150);
+      }
+    } else {
+      generator.classList.remove("hidden");
+    }
+
+    generateButton.addEventListener("click", generateNotionLink);
+
+    copyButton.addEventListener("click", async () => {
+      if (!notionLink.value) {
+        generateNotionLink();
+      }
+
+      if (!notionLink.value) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(notionLink.value);
+        generatorStatus.textContent = "Copied.";
+      } catch {
+        notionLink.select();
+        generatorStatus.textContent = "Select and copy the link manually.";
+      }
+    });
+  </script>
+</body>
+</html>
