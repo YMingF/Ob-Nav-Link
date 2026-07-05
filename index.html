@@ -201,7 +201,22 @@
     const copyButton = document.getElementById("copyButton");
 
     const pageUrl = location.href.split("?")[0].split("#")[0];
-    const target = new URL(location.href).searchParams.get("to");
+    const query = location.search.startsWith("?") ? location.search.slice(1) : location.search;
+    const targetMarker = query.match(/(?:^|&)to=/);
+    const rawTarget = targetMarker ? query.slice(targetMarker.index + targetMarker[0].length) : null;
+    let target = null;
+
+    if (rawTarget) {
+      if (rawTarget.toLowerCase().startsWith("obsidian://")) {
+        target = rawTarget;
+      } else {
+        try {
+          target = decodeURIComponent(rawTarget.replaceAll("+", "%20"));
+        } catch {
+          target = rawTarget;
+        }
+      }
+    }
 
     function isObsidianUri(value) {
       try {

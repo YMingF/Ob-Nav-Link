@@ -26,7 +26,19 @@ The Obsidian URI can then use the UID instead of the file path:
 obsidian://advanced-uri?vault=ObRepo&uid=45ca8d03-a345-4053-b491-6ab1500e344a
 ```
 
-After URL encoding, the Notion link looks like this:
+If you use the Advanced URI plugin's custom copy format, set it to:
+
+```text
+https://ymingf.github.io/Ob-Nav-Link/?to={{uri}}
+```
+
+The opener accepts both raw Advanced URI output and URL-encoded values. The raw Notion link looks like this:
+
+```text
+https://ymingf.github.io/Ob-Nav-Link/?to=obsidian://adv-uri?vault=ObRepo&uid=45ca8d03-a345-4053-b491-6ab1500e344a
+```
+
+The encoded form also works:
 
 ```text
 https://<your-github-username>.github.io/notion-obsidian-opener/?to=obsidian%3A%2F%2Fadvanced-uri%3Fvault%3DObRepo%26uid%3D45ca8d03-a345-4053-b491-6ab1500e344a
